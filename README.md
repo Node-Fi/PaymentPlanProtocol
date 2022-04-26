@@ -1,5 +1,7 @@
 # PaymentPlan Protocol
 
+Payment plans driven by off-chain integrators.
+
 ## How to Use
 
 ### Creating a payment plan
