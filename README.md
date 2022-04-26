@@ -1,4 +1,4 @@
-# PaymentPlanProtocol
+# PaymentPlan Protocol
 
 ## How to Use
 
