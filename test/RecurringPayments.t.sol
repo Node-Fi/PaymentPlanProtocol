@@ -5,10 +5,19 @@ import "ds-test/test.sol";
 import { RecurringPayments, PaymentStructures } from "src/RecurringPayments.sol";
 import { ERC20PresetFixedSupply } from "openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
+interface Vm {
+    function warp(uint256 x) external;
+    function prank(address addr) external;
+}
+
 contract ContractTest is DSTest {
     RecurringPayments payments;
     ERC20PresetFixedSupply token;
     RecurringPayments bogey;
+
+    address prankster = address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+    Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
     function setUp() public {
         payments = new RecurringPayments();
         bogey = new RecurringPayments();
@@ -17,7 +26,7 @@ contract ContractTest is DSTest {
 
     function _createPlan(uint256 numIntervals, uint256 amountPerInterval, uint256 intervalLength) internal {
         token.approve(address(payments), numIntervals * amountPerInterval);
-        payments.createPaymentPlan(address(this), address(token), amountPerInterval, numIntervals, intervalLength);
+        payments.createPaymentPlan(address(bogey), address(token), amountPerInterval, numIntervals, intervalLength);
     }
 
     function testFailCreateNoApproval() public {
@@ -37,9 +46,29 @@ contract ContractTest is DSTest {
         assert(plan.nextTransferOn > block.timestamp);
     }
 
-    function testFulfillPlanWithFuzzing(uint256 intervalLength) public {
+    function testCreatePlanWithFuzzing(uint256 intervalLength) public {
         uint256 numIntervals = 5;
         uint256 amountPerInterval = 1000;
         _createPlan(numIntervals, amountPerInterval, intervalLength);
     }
+
+    function testFulfillPlanWithFuzzing() public {
+        uint256 intervalLength = 10000;
+        uint256 numIntervals = 5;
+        uint256 amountPerInterval = 1000;
+        _createPlan(numIntervals, amountPerInterval, intervalLength);
+        vm.warp(block.timestamp + intervalLength + 1);
+        vm.prank(prankster);
+
+        uint256 balanceBefore = token.balanceOf(address(this));
+        payments.runInterval(1);
+        uint256 balanceAfter = token.balanceOf(address(this));
+        uint256 bogeyBalance = token.balanceOf(address(bogey));
+        uint256 fee = amountPerInterval * payments.callerFeeBips() / payments.BIPS_DENOMINATOR();
+
+        assert(balanceBefore > balanceAfter);
+        assert(bogeyBalance == (amountPerInterval - fee));
+        assert(balanceBefore == (balanceAfter + amountPerInterval));
+    }
+
 }

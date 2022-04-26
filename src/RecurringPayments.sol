@@ -51,13 +51,13 @@ interface PaymentStructures {
 contract RecurringPayments is PaymentStructures, Ownable {
   uint256 planCounter;
   mapping(uint256 => PaymentSchedule) schedules;
-  uint256 public callerFeeBips; // Fee given to whoever initiates a payment
+  uint256 public callerFeeBips = 2; // Fee given to whoever initiates a payment
   uint256 public adminFeeBips; // Fee taken by admin
 
   uint256 constant maxAdminFeeBips = 10;
   uint256 constant maxCallerFeeBips = 40;
 
-  uint256 constant BIPS_DENOMINATOR = 10000;
+  uint256 constant public BIPS_DENOMINATOR = 10000;
 
   /** View Functions */
 
@@ -105,7 +105,7 @@ contract RecurringPayments is PaymentStructures, Ownable {
     // Check conditions here with an if clause instead of require, so that integrators dont have to keep track of balances
     if (
       token.balanceOf(sender) >= amountToTransfer &&
-      token.allowance(sender, target) >= amountToTransfer
+      token.allowance(sender, address(this)) >= amountToTransfer
     ) {
       uint256 callerFee = (amountToTransfer * callerFeeBips) / BIPS_DENOMINATOR;
       token.transferFrom(sender, target, amountToTransfer - callerFee);
@@ -158,7 +158,12 @@ contract RecurringPayments is PaymentStructures, Ownable {
     _startInterval(id);
   }
 
-  function runInterval(uint256[] memory ids) external {
+  function runInterval(uint256 id) external {
+    address caller = msg.sender;
+    _fulfillInterval(id, caller);
+  }
+
+  function runIntervals(uint256[] memory ids) external {
     address caller = msg.sender;
     for (uint256 i = 0; i < ids.length; i++) {
       _fulfillInterval(ids[i], caller);
